@@ -147,6 +147,7 @@ More recipes in: `references/components.md`.
 
 ## Files
 - `SKILL.md` — the skill instructions used by the agent
+- `protocols/` — LLM-first contracts/specs (how to describe UIs as data)
 - `references/tokens.md` — tokens cookbook
 - `references/components.md` — CRUD/settings/wizard recipes
 - `examples/` — copy-pasteable examples for LLMs (CRUD, etc.)

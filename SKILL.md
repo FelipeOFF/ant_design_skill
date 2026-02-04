@@ -109,6 +109,8 @@ Use `components.<ComponentName>` for specific tweaks (Button, Input, Table, etc.
 - Read **README.md** for the full “how-to” (setup + patterns + examples).
 - Read `references/tokens.md` for a tokens cookbook.
 - Read `references/components.md` for practical page recipes (CRUD, Settings, Wizard).
+- Use `examples/` when you want ready-to-copy AntD screens.
+- Use `starter/` when you need a runnable Vite + React + AntD skeleton.
 
 ## Guardrails
 - Assume Ant Design v5+ (tokens). If project is v4 (Less variables), stop and ask.

@@ -149,6 +149,8 @@ More recipes in: `references/components.md`.
 - `SKILL.md` — the skill instructions used by the agent
 - `references/tokens.md` — tokens cookbook
 - `references/components.md` — CRUD/settings/wizard recipes
+- `examples/` — copy-pasteable examples for LLMs (CRUD, etc.)
+- `starter/` — runnable Vite + React + AntD starter for LLMs
 
 ## License
 MIT

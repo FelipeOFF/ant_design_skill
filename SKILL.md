@@ -107,6 +107,7 @@ Use `components.<ComponentName>` for specific tweaks (Button, Input, Table, etc.
 
 ## References
 - Read **README.md** for the full “how-to” (setup + patterns + examples).
+- Use `protocols/` when you want LLM-first contracts (describe UIs as data, then generate code deterministically).
 - Read `references/tokens.md` for a tokens cookbook.
 - Read `references/components.md` for practical page recipes (CRUD, Settings, Wizard).
 - Use `examples/` when you want ready-to-copy AntD screens.

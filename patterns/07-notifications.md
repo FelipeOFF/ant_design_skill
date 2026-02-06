@@ -1,197 +1,143 @@
-# Pattern 07: Notifications
+# Pattern: Notifications
 
 ## Problem / Context
 
-Users need feedback about action results, errors, and system events. Notifications must be informative without being intrusive, and errors need clear recovery paths.
+Notifications need to be contextual, non-blocking, and actionable. Poor notification patterns overwhelm users or provide useless information without next steps.
 
 ## When to Use
 
-- `message`: Brief success/error feedback (3s auto-dismiss)
-- `notification`: Detailed information with actions
-- `Modal.confirm`: Destructive action confirmations
+- Action completion feedback
+- Error messages with recovery options
+- Async process updates
+- System alerts
 
 ## When NOT to Use
 
-- For inline validation (use Form errors)
-- For loading states in buttons (use Button loading)
-- For persistent alerts (use Alert component)
+- Primary information (use Alert in page)
+- Blocking errors (use Modal)
+- Validation messages (use Form.Item)
 
 ## AntD Components Involved
 
-- `message.success/error/warning/info/loading` - Brief toast notifications
-- `notification.open` - Rich notifications with actions
-- `Modal.confirm` - Confirmation dialogs
-- `Alert` - Inline notification banners
-- `Badge` - Count indicators
-- `Progress` - Upload/operation progress
+- `message` - Brief toast notifications
+- `notification` - Rich notifications with actions
+- `Alert` - Inline banners (page-level)
+- `Badge` - Indicators on icons
 
 ## React Implementation Notes
 
-### Message Usage
+### Message Pattern
 
 ```tsx
 import { message } from 'antd';
 
-// Simple usage
-message.success('Item saved');
+// Success
+message.success('Saved successfully');
 
-// With duration
+// Error with duration
 message.error('Failed to save', 5);
 
-// Loading that updates
-const key = 'updatable';
-message.loading({ content: 'Saving...', key });
-await saveData();
-message.success({ content: 'Saved!', key, duration: 2 });
+// Loading then resolve
+const hide = message.loading('Saving...', 0);
+await api.save();
+hide();
+message.success('Saved!');
 ```
 
-### Notification with Actions
+### Notification Pattern
 
 ```tsx
-import { notification, Button } from 'antd';
+import { notification } from 'antd';
 
-notification.open({
-  message: 'Upload Complete',
-  description: 'Your file has been processed successfully.',
+notification.success({
+  message: 'Export Complete',
+  description: 'Your report is ready for download.',
   btn: (
-    <Button type="primary" size="small" onClick={() => viewResults()}>
-      View Results
+    <Button type="primary" onClick={handleDownload}>
+      Download
     </Button>
   ),
-  onClose: () => console.log('Notification closed'),
+  duration: 0, // Don't auto-close
 });
 ```
 
 ### Error Handling Pattern
 
 ```tsx
-const handleError = (error: Error, context: string) => {
-  console.error(`${context}:`, error);
-  
-  if (error.code === 'NETWORK_ERROR') {
-    message.error('Network connection failed. Please check your connection.');
-  } else if (error.code === 'UNAUTHORIZED') {
-    message.error('Session expired. Please log in again.');
-    redirectToLogin();
-  } else {
+const handleError = (error: Error) => {
+  if (error.response?.status === 401) {
     notification.error({
-      message: 'An error occurred',
-      description: error.message,
-      duration: 0, // Don't auto-dismiss
+      message: 'Session Expired',
+      description: 'Please log in again.',
+      btn: <Button onClick={() => navigate('/login')}>Login</Button>,
     });
+  } else {
+    message.error(error.message || 'An error occurred');
   }
 };
 ```
 
-### Global Error Boundary Integration
+### Global Error Boundary
 
 ```tsx
-// In your error boundary
-componentDidCatch(error, errorInfo) {
-  notification.error({
-    message: 'Application Error',
-    description: 'Something went wrong. Please refresh the page.',
-    duration: 0,
-  });
+class ErrorBoundary extends React.Component {
+  componentDidCatch(error) {
+    notification.error({
+      message: 'Something went wrong',
+      description: error.message,
+    });
+  }
 }
 ```
 
 ## Accessibility / Keyboard
 
-- Notifications should be announced via ARIA live regions
-- Action buttons in notifications must be keyboard accessible
-- Error messages should describe how to recover
-- Don't auto-dismiss error notifications
+- Notifications auto-dismiss with sufficient time (4-6s)
+- Pause on hover for reading
+- Keyboard accessible close buttons
+- Screen reader announcements
 
 ## Do / Don't
 
-| Do | Don't |
-|----|-------|
-| Use `message` for brief feedback | Use `notification` for one-word messages |
-| Keep messages under 60 characters | Write paragraphs in toast messages |
-| Position consistently (usually top-right) | Jump positions randomly |
-| Allow manual dismissal of important notices | Auto-dismiss critical errors |
-| Use `key` to prevent duplicate messages | Show 10 identical messages |
-| Include recovery actions in notifications | Leave users stuck after errors |
+**Do:**
+- Keep messages concise (max 2 lines)
+- Use appropriate notification type
+- Provide action buttons for important notifications
+- Group related notifications
+
+**Don't:**
+- Show multiple identical notifications
+- Use notifications for form validation
+- Auto-dismiss critical errors
+- Block user actions with notifications
 
 ## Minimal Code Snippet
 
 ```tsx
-import { message, notification, Modal, Button, Space } from 'antd';
-import { CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { message, notification, Button } from 'antd';
 
-export function NotificationExamples() {
-  // Success message
+function NotificationDemo() {
   const showSuccess = () => {
-    message.success('Changes saved successfully!');
+    message.success('Operation completed');
   };
 
-  // Error with description
-  const showError = () => {
-    notification.error({
-      message: 'Failed to save changes',
-      description: 'There was a problem connecting to the server. Please try again.',
-      duration: 0,
-    });
-  };
-
-  // Loading state that updates
-  const showLoading = async () => {
-    const key = 'loading';
-    message.loading({ content: 'Processing...', key });
-    
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    message.success({ content: 'Done!', key, duration: 2 });
-  };
-
-  // Notification with action
-  const showActionNotification = () => {
-    notification.open({
-      message: 'New update available',
-      description: 'A new version of the application is ready to install.',
-      icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+  const showNotification = () => {
+    notification.info({
+      message: 'New Message',
+      description: 'You have a new notification.',
       btn: (
-        <Space>
-          <Button size="small" onClick={() => notification.destroy()}>
-            Later
-          </Button>
-          <Button type="primary" size="small" onClick={() => {
-            notification.destroy();
-            message.success('Update installed!');
-          }}>
-            Install Now
-          </Button>
-        </Space>
+        <Button size="small" onClick={() => console.log('View')}>
+          View
+        </Button>
       ),
-      duration: 0,
-    });
-  };
-
-  // Confirmation modal
-  const showConfirm = () => {
-    Modal.confirm({
-      title: 'Delete this item?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'This action cannot be undone. The item will be permanently removed.',
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        message.success('Item deleted');
-      },
     });
   };
 
   return (
-    <Space direction="vertical">
-      <Button onClick={showSuccess}>Show Success Message</Button>
-      <Button onClick={showError} danger>Show Error Notification</Button>
-      <Button onClick={showLoading}>Show Loading (2s)</Button>
-      <Button onClick={showActionNotification}>Show Action Notification</Button>
-      <Button onClick={showConfirm} danger>Show Confirm Dialog</Button>
-    </Space>
+    <>
+      <Button onClick={showSuccess}>Show Message</Button>
+      <Button onClick={showNotification}>Show Notification</Button>
+    </>
   );
 }
 ```

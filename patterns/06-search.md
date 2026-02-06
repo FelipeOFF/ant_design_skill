@@ -1,258 +1,175 @@
-# Pattern 06: Search
+# Pattern: Search
 
 ## Problem / Context
 
-Search interfaces need to balance responsiveness with server load. Debouncing prevents excessive API calls while providing real-time feedback to users.
+Search interfaces require debounced input handling, loading states during server requests, and clear result presentation. Poor implementation leads to excessive API calls and janky UX.
 
 ## When to Use
 
-- Global search across entities
-- Filterable lists and tables
-- Autocomplete/typeahead fields
-- Search-as-you-type experiences
+- Global search across content
+- Filter panels with search
+- Real-time suggestions (autocomplete)
+- Search within large datasets
 
 ## When NOT to Use
 
-- For exact-match lookups (use direct query)
-- When search results are computable client-side
-- For sensitive data requiring explicit submit
+- Small static lists (client-side filter)
+- Simple select dropdowns
+- Exact-match lookups
 
 ## AntD Components Involved
 
 - `Input.Search` - Search input with button
-- `AutoComplete` - Typeahead suggestions
-- `List` or `Table` - Results display
-- `Spin` - Loading indicator
+- `AutoComplete` - Suggestions dropdown
+- `List` / `Table` - Results display
 - `Empty` - No results state
-- `Tag` - Applied filters display
-- `Space` - Filter chips layout
+- `Spin` - Loading indicator
 
 ## React Implementation Notes
 
-### Debounce Implementation
+### Debounced Search Pattern
 
 ```tsx
-import { useState, useEffect, useCallback } from 'react';
-import { debounce } from 'lodash-es'; // or use your own
+import { useDebounce } from 'use-debounce';
 
-const [searchTerm, setSearchTerm] = useState('');
-const [debouncedTerm, setDebouncedTerm] = useState('');
-
-const debouncedUpdate = useCallback(
-  debounce((value: string) => setDebouncedTerm(value), 300),
-  []
-);
-
-useEffect(() => {
-  debouncedUpdate(searchTerm);
-  return () => debouncedUpdate.cancel();
-}, [searchTerm, debouncedUpdate]);
-```
-
-### Search with Loading State
-
-```tsx
+const [query, setQuery] = useState('');
+const [debouncedQuery] = useDebounce(query, 300);
+const [results, setResults] = useState([]);
 const [loading, setLoading] = useState(false);
-const [results, setResults] = useState<Result[]>([]);
-const [hasSearched, setHasSearched] = useState(false);
 
 useEffect(() => {
-  if (!debouncedTerm) {
+  if (!debouncedQuery) {
     setResults([]);
-    setHasSearched(false);
     return;
   }
-
-  const fetchResults = async () => {
-    setLoading(true);
-    try {
-      const data = await api.search(debouncedTerm);
-      setResults(data);
-      setHasSearched(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchResults();
-}, [debouncedTerm]);
+  
+  setLoading(true);
+  api.search(debouncedQuery)
+    .then(setResults)
+    .finally(() => setLoading(false));
+}, [debouncedQuery]);
 ```
 
-### AbortController for Race Conditions
+### Search Input Component
 
 ```tsx
-useEffect(() => {
-  const controller = new AbortController();
-  
-  const fetchResults = async () => {
-    try {
-      const data = await api.search(debouncedTerm, { signal: controller.signal });
-      setResults(data);
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        handleError(error);
-      }
-    }
-  };
+<Input.Search
+  placeholder="Search users..."
+  value={query}
+  onChange={(e) => setQuery(e.target.value)}
+  onSearch={setQuery}
+  loading={loading}
+  allowClear
+  enterButton
+/>
+```
 
-  if (debouncedTerm) fetchResults();
-  
-  return () => controller.abort();
-}, [debouncedTerm]);
+### Results Display
+
+```tsx
+{loading && <Spin />}
+
+{!loading && results.length === 0 && debouncedQuery && (
+  <Empty description={`No results for "${debouncedQuery}"`} />
+)}
+
+{!loading && results.length > 0 && (
+  <List
+    dataSource={results}
+    renderItem={(item) => (
+      <List.Item>
+        <List.Item.Meta
+          title={item.name}
+          description={item.description}
+        />
+      </List.Item>
+    )}
+  />
+)}
+```
+
+### Autocomplete Pattern
+
+```tsx
+const [options, setOptions] = useState([]);
+
+const handleSearch = async (value: string) => {
+  const results = await api.suggest(value);
+  setOptions(results.map(r => ({ value: r.id, label: r.name })));
+};
+
+<AutoComplete
+  options={options}
+  onSearch={handleSearch}
+  onSelect={(value) => navigate(`/items/${value}`)}
+  placeholder="Search..."
+/>
 ```
 
 ## Accessibility / Keyboard
 
-- Search input must have an accessible label
-- Results should be announced via live region
-- Arrow keys should navigate through suggestions
-- Enter should submit the search
-- Clear button must be keyboard accessible
+- Search input has proper `role="search"`
+- Results are announced via aria-live
+- Keyboard navigation through suggestions
+- Clear focus indicators
 
 ## Do / Don't
 
-| Do | Don't |
-|----|-------|
-| Debounce at 300-500ms | Search on every keystroke |
-| Show loading indicator | Leave user waiting without feedback |
-| Handle empty results gracefully | Show "undefined" or blank |
-| Cancel in-flight requests | Show stale results |
-| Trim whitespace from search | Search for "   " |
-| Persist recent searches (optional) | Forget user's previous searches |
+**Do:**
+- Debounce input (300ms typical)
+- Show loading state immediately
+- Allow clearing search
+- Persist recent searches
+
+**Don't:**
+- Search on every keystroke
+- Show "no results" before user stops typing
+- Require exact matches
+- Forget empty state
 
 ## Minimal Code Snippet
 
 ```tsx
-import { useState, useEffect, useCallback } from 'react';
-import { Input, List, Spin, Empty, Tag, Space } from 'antd';
-import { SearchOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { debounce } from 'lodash-es';
+import { Input, List, Empty, Spin } from 'antd';
+import { useState, useEffect } from 'react';
+import { useDebounce } from 'use-debounce';
 
-interface SearchResult {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-}
-
-export function SearchComponent() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedTerm, setDebouncedTerm] = useState('');
+function SearchComponent() {
+  const [query, setQuery] = useState('');
+  const [debouncedQuery] = useDebounce(query, 300);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
-
-  // Debounce search term
-  const debouncedUpdate = useCallback(
-    debounce((value: string) => setDebouncedTerm(value), 300),
-    []
-  );
 
   useEffect(() => {
-    debouncedUpdate(searchTerm);
-    return () => debouncedUpdate.cancel();
-  }, [searchTerm, debouncedUpdate]);
-
-  // Fetch results when debounced term changes
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchResults = async () => {
-      if (!debouncedTerm.trim()) {
-        setResults([]);
-        setHasSearched(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        
-        const mockResults: SearchResult[] = Array.from({ length: 5 }, (_, i) => ({
-          id: `${i}`,
-          title: `${debouncedTerm} - Result ${i + 1}`,
-          description: `Description for search result ${i + 1} matching "${debouncedTerm}"`,
-          category: ['Article', 'User', 'Product'][i % 3],
-        }));
-
-        if (!controller.signal.aborted) {
-          setResults(mockResults);
-          setHasSearched(true);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchResults();
-    return () => controller.abort();
-  }, [debouncedTerm]);
-
-  const handleClear = () => {
-    setSearchTerm('');
-    setResults([]);
-    setHasSearched(false);
-  };
+    if (!debouncedQuery) return;
+    setLoading(true);
+    fetch(`/api/search?q=${debouncedQuery}`)
+      .then(r => r.json())
+      .then(data => {
+        setResults(data);
+        setLoading(false);
+      });
+  }, [debouncedQuery]);
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
+    <div>
       <Input.Search
-        placeholder="Search articles, users, products..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        enterButton={<SearchOutlined />}
-        size="large"
+        placeholder="Search..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         loading={loading}
         allowClear
-        aria-label="Search"
       />
-
-      <div style={{ marginTop: 24 }}>
-        {loading && (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <Spin size="large" />
-          </div>
-        )}
-
-        {!loading && hasSearched && results.length === 0 && (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <span>
-                No results for "<strong>{debouncedTerm}</strong>"
-              </span>
-            }
-          />
-        )}
-
-        {!loading && results.length > 0 && (
-          <List
-            header={
-              <Space>
-                <span>{results.length} results for "{debouncedTerm}"</span>
-                <Tag closable onClose={handleClear}>Clear</Tag>
-              </Space>
-            }
-            dataSource={results}
-            renderItem={(item) => (
-              <List.Item>
-                <List.Item.Meta
-                  title={item.title}
-                  description={
-                    <div>
-                      <Tag size="small">{item.category}</Tag>
-                      <p>{item.description}</p>
-                    </div>
-                  }
-                />
-              </List.Item>
-            )}
-          />
-        )}
-      </div>
+      {loading && <Spin style={{ marginTop: 16 }} />}
+      {!loading && results.length > 0 && (
+        <List
+          dataSource={results}
+          renderItem={(item) => <List.Item>{item.name}</List.Item>}
+        />
+      )}
+      {!loading && query && results.length === 0 && (
+        <Empty description="No results" />
+      )}
     </div>
   );
 }

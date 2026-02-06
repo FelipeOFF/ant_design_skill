@@ -1,227 +1,153 @@
-# Pattern 03: Forms
+# Pattern: Forms
 
 ## Problem / Context
 
-Forms are the primary way users input data. The challenge is handling validation, async submission, loading states, and error presentation in a consistent, user-friendly way.
+Forms require validation, async submission handling, loading states, and error display. Without a consistent pattern, forms become inconsistent and error-prone across the application.
 
 ## When to Use
 
-- Data entry and editing interfaces
-- Search and filter panels
-- Configuration and settings forms
-- Any user input requiring validation
+- Data entry interfaces
+- Settings/configuration pages
+- Authentication flows
+- Search/filter panels
 
 ## When NOT to Use
 
-- Simple one-field inputs (use standalone Input)
-- Real-time filtering without submission
-- Read-only data display
+- Simple single-field inputs (use standalone Input)
+- Inline editing (use editable components)
+- Real-time collaborative editing
 
 ## AntD Components Involved
 
-- `Form` - Form container and state management
-- `Form.Item` - Field wrapper with validation
-- `Input`, `Input.Password`, `Input.TextArea` - Text inputs
-- `Select`, `DatePicker`, `Checkbox`, `Radio` - Selection inputs
+- `Form` - Form container with validation
+- `Form.Item` - Field wrapper with labels/errors
+- `Input`, `Select`, `DatePicker` - Form controls
 - `Button` - Submit actions
-- `Alert` - Error summary display
+- `Alert` - Error summaries
 
 ## React Implementation Notes
 
-### Form Instance
+### Form Instance Pattern
 
 ```tsx
 const [form] = Form.useForm();
-```
-
-### Validation Rules
-
-```tsx
-const rules = {
-  email: [
-    { required: true, message: 'Email is required' },
-    { type: 'email', message: 'Invalid email format' },
-  ],
-  password: [
-    { required: true, message: 'Password is required' },
-    { min: 8, message: 'Password must be at least 8 characters' },
-  ],
-};
-```
-
-### Async Submit Pattern
-
-```tsx
 const [submitting, setSubmitting] = useState(false);
-const [submitError, setSubmitError] = useState<string | null>(null);
+const [error, setError] = useState<string | null>(null);
+```
 
+### Async Submit Handler
+
+```tsx
 const handleSubmit = async (values: FormValues) => {
   setSubmitting(true);
-  setSubmitError(null);
+  setError(null);
   
   try {
-    await api.submitForm(values);
-    message.success('Form submitted successfully');
+    await api.saveData(values);
+    message.success('Saved successfully');
     form.resetFields();
-  } catch (error) {
-    setSubmitError(error.message);
-    // Optionally set field-specific errors
-    form.setFields([
-      { name: 'email', errors: ['This email is already registered'] },
-    ]);
+  } catch (err) {
+    setError(err.message);
+    // Focus first error field
+    form.scrollToField(Object.keys(err.fields)[0]);
   } finally {
     setSubmitting(false);
   }
 };
 ```
 
-### Error Summary Pattern
-
-Display a summary Alert above the form when submission fails:
+### Field-Level Validation
 
 ```tsx
-{submitError && (
-  <Alert 
-    type="error" 
-    message="Submission failed" 
-    description={submitError}
-    style={{ marginBottom: 24 }}
-    closable
-    onClose={() => setSubmitError(null)}
-  />
-)}
+<Form.Item
+  name="email"
+  rules={[
+    { required: true, message: 'Email is required' },
+    { type: 'email', message: 'Invalid email format' },
+  ]}
+>
+  <Input />
+</Form.Item>
+```
+
+### Dynamic Disabled States
+
+```tsx
+<Form.Item shouldUpdate>
+  {({ getFieldValue }) => {
+    const type = getFieldValue('type');
+    return (
+      <Form.Item name="details">
+        <Input disabled={type !== 'advanced'} />
+      </Form.Item>
+    );
+  }}
+</Form.Item>
 ```
 
 ## Accessibility / Keyboard
 
-- All inputs must have associated labels
+- Associate labels with inputs via `htmlFor`
 - Error messages linked via `aria-describedby`
-- Submit on Enter key in single-field forms
-- Focus management after validation errors
-- Clear error announcements for screen readers
+- Focus management on validation errors
+- Logical tab order
 
 ## Do / Don't
 
-| Do | Don't |
-|----|-------|
-| Disable submit button during submission | Allow double-submit clicks |
-| Show field-level and form-level errors | Only show console errors |
-| Reset form after successful submit | Keep dirty data after success |
-| Validate on blur for touched fields | Validate everything on every keystroke |
-| Use `name` prop matching API fields | Map form names to API separately |
-| Show loading state on submit | Leave user wondering if click worked |
+**Do:**
+- Validate on blur for immediate feedback
+- Show loading state on submit button
+- Group related fields visually
+- Use clear, actionable error messages
+
+**Don't:**
+- Validate aggressively on every keystroke
+- Show empty error messages
+- Disable entire form during submit
+- Mix controlled and uncontrolled inputs
 
 ## Minimal Code Snippet
 
 ```tsx
-import { useState } from 'react';
 import { Form, Input, Button, Alert, message } from 'antd';
+import { useState } from 'react';
 
-interface FormValues {
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
-
-export function RegistrationForm() {
-  const [form] = Form.useForm<FormValues>();
+function UserForm() {
+  const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (values: FormValues) => {
+  const onFinish = async (values: any) => {
     setSubmitting(true);
-    setSubmitError(null);
-
     try {
-      // Simulate API call
-      await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (values.email === 'exists@example.com') {
-            reject(new Error('Email already registered'));
-          } else {
-            resolve(null);
-          }
-        }, 1000);
+      await fetch('/api/users', {
+        method: 'POST',
+        body: JSON.stringify(values),
       });
-
-      message.success('Registration successful!');
+      message.success('User created');
       form.resetFields();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      setSubmitError(message);
-      
-      // Set field-specific error if it's an email conflict
-      if (message.includes('Email')) {
-        form.setFields([{ name: 'email', errors: [message] }]);
-      }
+    } catch (err) {
+      setError('Failed to create user');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleSubmit}
-      autoComplete="off"
-      style={{ maxWidth: 400 }}
-    >
-      {submitError && (
-        <Alert
-          type="error"
-          message="Registration failed"
-          description={submitError}
-          style={{ marginBottom: 24 }}
-          closable
-          onClose={() => setSubmitError(null)}
-        />
+    <Form form={form} onFinish={onFinish} layout="vertical">
+      {error && (
+        <Alert message={error} type="error" style={{ marginBottom: 16 }} />
       )}
-
       <Form.Item
-        label="Email"
-        name="email"
-        rules={[
-          { required: true, message: 'Please enter your email' },
-          { type: 'email', message: 'Please enter a valid email' },
-        ]}
+        name="name"
+        label="Name"
+        rules={[{ required: true }]}
       >
-        <Input placeholder="you@example.com" />
+        <Input />
       </Form.Item>
-
-      <Form.Item
-        label="Password"
-        name="password"
-        rules={[
-          { required: true, message: 'Please enter a password' },
-          { min: 8, message: 'Password must be at least 8 characters' },
-        ]}
-      >
-        <Input.Password placeholder="••••••••" />
-      </Form.Item>
-
-      <Form.Item
-        label="Confirm Password"
-        name="confirmPassword"
-        dependencies={['password']}
-        rules={[
-          { required: true, message: 'Please confirm your password' },
-          ({ getFieldValue }) => ({
-            validator(_, value) {
-              if (!value || getFieldValue('password') === value) {
-                return Promise.resolve();
-              }
-              return Promise.reject(new Error('Passwords do not match'));
-            },
-          }),
-        ]}
-      >
-        <Input.Password placeholder="••••••••" />
-      </Form.Item>
-
       <Form.Item>
-        <Button type="primary" htmlType="submit" loading={submitting} block>
-          Register
+        <Button type="primary" htmlType="submit" loading={submitting}>
+          Submit
         </Button>
       </Form.Item>
     </Form>

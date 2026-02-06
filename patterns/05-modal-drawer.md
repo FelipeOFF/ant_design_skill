@@ -1,241 +1,148 @@
-# Pattern 05: Modal / Drawer
+# Pattern: Modal / Drawer
 
 ## Problem / Context
 
-Modals and Drawers provide focused contexts for forms, confirmations, and detail views without navigating away from the current page. The challenge is managing their state, animations, and focus correctly.
+Modals and drawers are used for focused tasks, confirmations, and detail views. Poor implementation leads to focus traps, scroll issues, and inconsistent closing behavior.
 
 ## When to Use
 
-- **Modal**: Critical confirmations, small forms (≤3 fields), alerts
-- **Drawer**: Complex forms, detail views, multi-step wizards, lists
+- **Modal**: Critical confirmations, small forms, alert dialogs
+- **Drawer**: Side panels for detailed editing, filters, navigation
 
 ## When NOT to Use
 
-- For content that should have a dedicated URL
-- When users need to reference background content while editing
-- For very long scrolling content (use full page)
+- **Modal**: Large forms (use Drawer or page)
+- **Drawer**: Simple confirmations (overkill)
+- Both: Nested modals/drawers (reconsider UX)
 
 ## AntD Components Involved
 
-- `Modal` - Centered dialog overlay
-- `Drawer` - Slide-in panel from edge
-- `Form` - Forms inside modals/drawers
-- `Space`, `Button` - Action buttons in footer
-- `Spin` - Loading state for async operations
+- `Modal` - Centered overlay dialogs
+- `Drawer` - Side panels
+- `Form` - Often used inside both
+- `Button` - Action buttons
 
 ## React Implementation Notes
 
-### State Management Pattern
+### Controlled Visibility Pattern
 
 ```tsx
-const [isOpen, setIsOpen] = useState(false);
-const [record, setRecord] = useState<Record | null>(null);
-
-const openModal = (item?: Record) => {
-  setRecord(item || null);
-  setIsOpen(true);
-};
-
-const closeModal = () => {
-  setIsOpen(false);
-  // Optional: delay clearing record for exit animation
-  setTimeout(() => setRecord(null), 300);
-};
-```
-
-### Form in Modal Pattern
-
-```tsx
-const [form] = Form.useForm();
-
-// Reset form when modal opens with new data
-useEffect(() => {
-  if (isOpen) {
-    if (record) {
-      form.setFieldsValue(record);
-    } else {
-      form.resetFields();
-    }
-  }
-}, [isOpen, record, form]);
-
-const handleOk = async () => {
-  const values = await form.validateFields();
-  await submit(values);
-  closeModal();
-};
-```
-
-### Async Submit with Loading
-
-```tsx
+const [open, setOpen] = useState(false);
 const [confirmLoading, setConfirmLoading] = useState(false);
 
+const showModal = () => setOpen(true);
+const handleCancel = () => setOpen(false);
+```
+
+### Async Confirmation Handler
+
+```tsx
 const handleOk = async () => {
   setConfirmLoading(true);
   try {
-    await handleSubmit();
+    await api.deleteItem(id);
+    message.success('Deleted');
+    setOpen(false);
   } finally {
     setConfirmLoading(false);
   }
 };
 ```
 
+### Form Inside Modal
+
+```tsx
+const [form] = Form.useForm();
+
+<Modal
+  open={open}
+  onOk={() => form.submit()}
+  confirmLoading={confirmLoading}
+>
+  <Form form={form} onFinish={handleSubmit}>
+    <Form.Item name="name" rules={[{ required: true }]}>
+      <Input />
+    </Form.Item>
+  </Form>
+</Modal>
+```
+
+### Drawer for Side Panels
+
+```tsx
+<Drawer
+  title="Edit User"
+  open={open}
+  onClose={() => setOpen(false)}
+  width={520}
+  extra={
+    <Space>
+      <Button onClick={() => setOpen(false)}>Cancel</Button>
+      <Button type="primary" onClick={handleSave}>Save</Button>
+    </Space>
+  }
+>
+  <Form layout="vertical">
+    {/* Form fields */}
+  </Form>
+</Drawer>
+```
+
 ## Accessibility / Keyboard
 
-- Focus must be trapped inside modal/drawer when open
-- `ESC` key should close (unless confirm in progress)
-- Return focus to trigger element on close
-- First focusable element should receive focus on open
-- Use `aria-labelledby` pointing to title
+- Focus trapped inside modal when open
+- Escape key closes modal
+- Return focus to trigger on close
+- Proper aria-labels on buttons
 
 ## Do / Don't
 
-| Do | Don't |
-|----|-------|
-| Close on backdrop click for non-critical modals | Close on backdrop for destructive confirmations |
-| Show loading state during async operations | Allow double-submit while loading |
-| Animate open/close smoothly | Appear/disappear instantly |
-| Reset form when opening for create | Show previous user's data |
-| Use Drawer for forms with many fields | Cram 10+ fields into a Modal |
-| Disable primary action while loading | Allow interaction during submit |
+**Do:**
+- Use consistent widths (Modal: 520px standard)
+- Show loading state during async operations
+- Clear form on close for create modals
+- Use `destroyOnClose` for memory cleanup
+
+**Don't:**
+- Stack multiple modals
+- Disable backdrop click to close (unless critical)
+- Show modal on page load without user action
+- Forget to handle loading states
 
 ## Minimal Code Snippet
 
 ```tsx
-import { useState, useEffect } from 'react';
-import { Modal, Drawer, Form, Input, Button, Space, message } from 'antd';
+import { Modal, Button, Form, Input, message } from 'antd';
+import { useState } from 'react';
 
-interface User {
-  id?: string;
-  name: string;
-  email: string;
-  phone: string;
-}
+function ConfirmModal() {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-export function UserModalExample() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [confirmLoading, setConfirmLoading] = useState(false);
-  const [form] = Form.useForm();
-
-  // Reset form when modal opens
-  useEffect(() => {
-    if (isModalOpen || isDrawerOpen) {
-      if (editingUser) {
-        form.setFieldsValue(editingUser);
-      } else {
-        form.resetFields();
-      }
-    }
-  }, [isModalOpen, isDrawerOpen, editingUser, form]);
-
-  const openModal = (user?: User) => {
-    setEditingUser(user || null);
-    setIsModalOpen(true);
+  const handleOk = async () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setOpen(false);
+      message.success('Confirmed');
+    }, 2000);
   };
-
-  const openDrawer = (user?: User) => {
-    setEditingUser(user || null);
-    setIsDrawerOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setTimeout(() => setEditingUser(null), 300);
-  };
-
-  const closeDrawer = () => {
-    setIsDrawerOpen(false);
-    setTimeout(() => setEditingUser(null), 300);
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setConfirmLoading(true);
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      message.success(editingUser ? 'User updated' : 'User created');
-      closeModal();
-      closeDrawer();
-    } catch (error) {
-      console.error('Validation failed:', error);
-    } finally {
-      setConfirmLoading(false);
-    }
-  };
-
-  const formContent = (
-    <Form form={form} layout="vertical">
-      <Form.Item
-        name="name"
-        label="Name"
-        rules={[{ required: true, message: 'Please enter name' }]}
-      >
-        <Input placeholder="John Doe" />
-      </Form.Item>
-      <Form.Item
-        name="email"
-        label="Email"
-        rules={[
-          { required: true, message: 'Please enter email' },
-          { type: 'email', message: 'Invalid email' },
-        ]}
-      >
-        <Input placeholder="john@example.com" />
-      </Form.Item>
-      <Form.Item name="phone" label="Phone">
-        <Input placeholder="+1 234 567 890" />
-      </Form.Item>
-    </Form>
-  );
 
   return (
-    <div>
-      <Space>
-        <Button type="primary" onClick={() => openModal()}>
-          New User (Modal)
-        </Button>
-        <Button onClick={() => openDrawer()}>
-          New User (Drawer)
-        </Button>
-      </Space>
-
-      {/* Modal for simple forms */}
+    <>
+      <Button type="primary" onClick={() => setOpen(true)}>
+        Open Modal
+      </Button>
       <Modal
-        title={editingUser ? 'Edit User' : 'Create User'}
-        open={isModalOpen}
-        onOk={handleSubmit}
-        onCancel={closeModal}
-        confirmLoading={confirmLoading}
-        destroyOnClose
+        title="Confirm Action"
+        open={open}
+        onOk={handleOk}
+        confirmLoading={loading}
+        onCancel={() => setOpen(false)}
       >
-        {formContent}
+        Are you sure you want to proceed?
       </Modal>
-
-      {/* Drawer for complex forms */}
-      <Drawer
-        title={editingUser ? 'Edit User' : 'Create User'}
-        open={isDrawerOpen}
-        onClose={closeDrawer}
-        width={400}
-        footer={
-          <Space>
-            <Button onClick={closeDrawer}>Cancel</Button>
-            <Button type="primary" loading={confirmLoading} onClick={handleSubmit}>
-              Save
-            </Button>
-          </Space>
-        }
-        destroyOnClose
-      >
-        {formContent}
-      </Drawer>
-    </div>
+    </>
   );
 }
 ```

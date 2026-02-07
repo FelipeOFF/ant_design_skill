@@ -162,6 +162,23 @@ LLM-first usage patterns for common UI scenarios. Each pattern includes problem 
 | [09-theming](./patterns/09-theming.md) | ConfigProvider, design tokens, light/dark mode strategy |
 | [10-accessibility](./patterns/10-accessibility.md) | Focus management, ARIA labels, keyboard navigation |
 
+## Starter (Runnable Scaffold)
+
+The `starter/` directory is a **production-ready Vite + React + AntD v5 scaffold** with:
+
+- **API Client** — Typed fetch wrapper with error handling (`lib/apiClient.ts`)
+- **URL State** — Sync query params for search/pagination (`lib/urlState.ts`, `hooks/useUrlState.ts`)
+- **Reusable Components** — Common UI patterns ready to use:
+  - `PageShell` — Layout with breadcrumbs + title
+  - `DataTable` — Table with pagination presets
+  - `FormSubmitBar` — Standard form actions
+  - `ErrorBanner` — Error display with retry
+  - `LoadingState` — Skeleton/spinner/empty states
+
+Copy `starter/` into a new project and run `npm install && npm run dev`.
+
+See `starter/README.md` for detailed usage.
+
 ## Files
 - `SKILL.md` — the skill instructions used by the agent
 - `protocols/` — LLM-first contracts/specs (how to describe UIs as data)

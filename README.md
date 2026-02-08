@@ -153,14 +153,14 @@ LLM-first usage patterns for common UI scenarios. Each pattern includes problem 
 |---------|-------------|
 | [01-layout-shell](./patterns/01-layout-shell.md) | Responsive Layout with Sider/Header/Menu and collapse behavior |
 | [02-navigation-menus](./patterns/02-navigation-menus.md) | Menu with URL sync, selected keys, and deep-linking |
-| [03-forms](./patterns/03-forms.md) | Form validation, async submit, loading states, error handling |
+| [03-forms-validation](./patterns/03-forms-validation.md) | Form validation, async submit, loading states, error handling |
 | [04-data-table](./patterns/04-data-table.md) | Table with pagination, sorting, filtering, and row actions |
-| [05-modal-drawer](./patterns/05-modal-drawer.md) | Modal/Drawer for forms, confirmations, and detail views |
-| [06-search](./patterns/06-search.md) | Debounced search with server-side filtering and results |
-| [07-notifications](./patterns/07-notifications.md) | Message/notification patterns and error handling |
-| [08-upload](./patterns/08-upload.md) | File upload with progress, preview, and validation |
-| [09-theming](./patterns/09-theming.md) | ConfigProvider, design tokens, light/dark mode strategy |
-| [10-accessibility](./patterns/10-accessibility.md) | Focus management, ARIA labels, keyboard navigation |
+| [05-modal-drawer-flows](./patterns/05-modal-drawer-flows.md) | Modal/Drawer for forms, confirmations, and detail views |
+| [06-search-filtering](./patterns/06-search-filtering.md) | Debounced search with server-side filtering and results |
+| [07-notifications-error-handling](./patterns/07-notifications-error-handling.md) | Message/notification patterns and error handling |
+| [08-upload-management](./patterns/08-upload-management.md) | File upload with progress, preview, and validation |
+| [09-theming-config-provider](./patterns/09-theming-config-provider.md) | ConfigProvider, design tokens, light/dark mode strategy |
+| [10-accessibility-checklist](./patterns/10-accessibility-checklist.md) | Focus management, ARIA labels, keyboard navigation |
 
 ## Files
 - `SKILL.md` — the skill instructions used by the agent

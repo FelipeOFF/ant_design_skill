@@ -1,136 +1,82 @@
-# Pattern: Layout Shell (Layout/Sider/Header/Menu)
+# Pattern 1: Layout Shell (Responsive)
 
 ## Problem / Context
+Applications need a consistent structural wrapper that handles header, sidebar, content area, and footer, while adapting to different screen sizes (mobile/desktop).
 
-Building a consistent application shell with navigation, header branding, and responsive behavior is a common requirement in admin dashboards and SaaS applications. Getting the layout structure right early prevents refactoring later.
+## When to use
+- Every dashboard or admin application.
+- Apps requiring persistent navigation.
 
-## When to Use
+## When NOT to use
+- Marketing landing pages (use simple CSS/Divs).
+- Single-page tools with no navigation structure.
 
-- Admin dashboards with side navigation
-- SaaS applications requiring consistent navigation structure
-- Applications needing responsive collapse behavior on mobile
-
-## When NOT to Use
-
-- Simple landing pages (overkill)
-- Single-page apps without navigation
-- Mobile-first apps (prefer bottom navigation)
-
-## AntD Components Involved
-
-- `Layout` - Container component
-- `Layout.Sider` - Collapsible sidebar
-- `Layout.Header` - Top header bar
-- `Layout.Content` - Main content area
-- `Menu` - Navigation items
+## AntD Components
+- `Layout` (Wrapper)
+- `Layout.Header`
+- `Layout.Sider`
+- `Layout.Content`
+- `Layout.Footer`
 
 ## React Implementation Notes
-
-### State Management
-
-```tsx
-const [collapsed, setCollapsed] = useState(false);
-const [mobileOpen, setMobileOpen] = useState(false);
-const { token } = theme.useToken();
-```
-
-### Responsive Breakpoints
-
-```tsx
-const isMobile = useMediaQuery({ maxWidth: 768 });
-
-// Auto-collapse on mobile
-useEffect(() => {
-  if (isMobile) setCollapsed(true);
-}, [isMobile]);
-```
-
-### Composition Pattern
-
-```tsx
-<Layout style={{ minHeight: '100vh' }}>
-  <Sider
-    breakpoint="lg"
-    collapsedWidth={isMobile ? 0 : 80}
-    collapsible
-    collapsed={collapsed}
-    onCollapse={setCollapsed}
-    trigger={null}
-  >
-    <div className="logo" />
-    <Menu items={menuItems} mode="inline" />
-  </Sider>
-  <Layout>
-    <Header style={{ padding: 0, background: token.colorBgContainer }}>
-      <Button icon={collapsed ? <MenuUnfold /> : <MenuFold />} 
-              onClick={() => setCollapsed(!collapsed)} />
-    </Header>
-    <Content style={{ margin: '24px 16px' }}>
-      {children}
-    </Content>
-  </Layout>
-</Layout>
-```
+- Use `useState` for `collapsed` state of the Sider.
+- Use `onBreakpoint` prop on Sider for automatic responsiveness.
+- Wrap the Layout in a context provider if navigation state needs to be shared globaly, or keep it local to the shell component.
+- Use CSS Modules or styled-components to set `minHeight: 100vh`.
 
 ## Accessibility / Keyboard
-
-- Ensure Sider has `role="navigation"` when containing menu
-- Focus trap mobile drawer when open
-- Keyboard shortcut (e.g., `Cmd+\`) to toggle sidebar
-- Skip link to main content for screen readers
+- Ensure the `Sider` trigger is keyboard accessible (AntD handles this default).
+- Use proper semantic HTML5 tags (AntD outputs `<header>`, `<main>`, `<footer>` if configured or use semantic elements inside).
+- Skip-to-content link should be added manually before the Layout for better a11y.
 
 ## Do / Don't
-
-**Do:**
-- Keep Sider width consistent (200-256px standard)
-- Use consistent collapse behavior across pages
-- Persist collapse state in localStorage
-- Show overlay on mobile when drawer is open
-
-**Don't:**
-- Nest multiple Layout.Sider components
-- Put scrollable content directly in Header
-- Use different breakpoint values on different pages
+- **Do**: Set a `minHeight: 100vh` on the outer Layout to prevent footer floating.
+- **Do**: Use `trigger={null}` if you implement a custom toggle button in the Header.
+- **Don't**: Mix multiple nested Layouts unnecessarily; keep the tree shallow.
 
 ## Minimal Code Snippet
 
 ```tsx
-import { Layout, Menu, Button } from 'antd';
+import React, { useState } from 'react';
+import { Layout, Menu, Button, theme } from 'antd';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
-import { useState } from 'react';
 
 const { Header, Sider, Content } = Layout;
 
-function AppShell() {
+export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const {
+    token: { colorBgContainer, borderRadiusLG },
+  } = theme.useToken();
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed}>
-        <div className="logo" />
-        <Menu
-          theme="dark"
-          mode="inline"
-          defaultSelectedKeys={['1']}
-          items={[
-            { key: '1', icon: <UserOutlined />, label: 'nav 1' },
-            { key: '2', icon: <VideoCameraOutlined />, label: 'nav 2' },
-          ]}
-        />
+      <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" onBreakpoint={setCollapsed}>
+        <div className="logo" style={{ height: 32, margin: 16, background: 'rgba(255,255,255,0.2)' }} />
+        <Menu theme="dark" mode="inline" defaultSelectedKeys={['1']} items={[{ key: '1', label: 'Home' }]} />
       </Sider>
       <Layout>
-        <Header style={{ padding: 0, background: '#fff' }}>
+        <Header style={{ padding: 0, background: colorBgContainer }}>
           <Button
             type="text"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
+            style={{ fontSize: '16px', width: 64, height: 64 }}
           />
         </Header>
-        <Content style={{ margin: '24px 16px', padding: 24 }}>
-          Content goes here
+        <Content
+          style={{
+            margin: '24px 16px',
+            padding: 24,
+            minHeight: 280,
+            background: colorBgContainer,
+            borderRadius: borderRadiusLG,
+          }}
+        >
+          {children}
         </Content>
       </Layout>
     </Layout>
   );
-}
+};
 ```

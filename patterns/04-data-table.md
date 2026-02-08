@@ -1,164 +1,87 @@
-# Pattern: Data Table
+# Pattern 4: Smart Data Table (Pagination & Actions)
 
 ## Problem / Context
+Displaying tabular data with server-side pagination, sorting, filtering, and row-level actions.
 
-Data tables need to handle pagination, sorting, filtering, and row actions while maintaining performance and usability. Loading states and empty states must be handled gracefully.
+## When to use
+- User lists, order history, inventory management.
+- Any dataset larger than ~50 records.
 
-## When to Use
+## When NOT to use
+- Small static lists (use `List` component).
+- Complex grid layouts (use CSS Grid or `Card` list).
 
-- Listing large datasets
-- Admin data management
-- Report views with sortable columns
-- Multi-select operations
-
-## When NOT to Use
-
-- Small datasets (< 10 items, use List)
-- Complex hierarchical data (use Tree)
-- Mobile-first designs (consider Cards)
-
-## AntD Components Involved
-
-- `Table` - Main data display
-- `Pagination` - For large datasets
-- `Tag` / `Badge` - Cell decorations
-- `Dropdown` / `Button` - Row actions
-- `Skeleton` / `Spin` - Loading states
-- `Empty` - No data state
+## AntD Components
+- `Table`
+- `Tag`, `Space`, `Button`, `Dropdown` (for actions)
 
 ## React Implementation Notes
-
-### Server-Side Data Fetching
-
-```tsx
-const [data, setData] = useState([]);
-const [loading, setLoading] = useState(false);
-const [pagination, setPagination] = useState({
-  current: 1,
-  pageSize: 10,
-  total: 0,
-});
-const [filters, setFilters] = useState({});
-const [sorter, setSorter] = useState({});
-
-const fetchData = useCallback(async () => {
-  setLoading(true);
-  const result = await api.getData({
-    page: pagination.current,
-    pageSize: pagination.pageSize,
-    ...filters,
-    sortField: sorter.field,
-    sortOrder: sorter.order,
-  });
-  setData(result.data);
-  setPagination(prev => ({ ...prev, total: result.total }));
-  setLoading(false);
-}, [pagination.current, pagination.pageSize, filters, sorter]);
-
-useEffect(() => { fetchData(); }, [fetchData]);
-```
-
-### Table Configuration
-
-```tsx
-const columns = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    sorter: true,
-    filters: [
-      { text: 'Active', value: 'active' },
-      { text: 'Inactive', value: 'inactive' },
-    ],
-  },
-  {
-    title: 'Status',
-    dataIndex: 'status',
-    render: (status) => (
-      <Tag color={status === 'active' ? 'green' : 'red'}>
-        {status}
-      </Tag>
-    ),
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    render: (_, record) => (
-      <Space>
-        <Button onClick={() => handleEdit(record)}>Edit</Button>
-        <Button danger onClick={() => handleDelete(record)}>Delete</Button>
-      </Space>
-    ),
-  },
-];
-```
-
-### Row Selection
-
-```tsx
-const [selectedRows, setSelectedRows] = useState([]);
-
-const rowSelection = {
-  selectedRowKeys: selectedRows.map(r => r.id),
-  onChange: (keys, rows) => setSelectedRows(rows),
-};
-```
+- **State**: Keep `pagination`, `filters`, and `sorter` in state.
+- **Fetching**: Use a `useEffect` that triggers when table params change.
+- **TableProps**: Pass `loading`, `dataSource`, `pagination`, and `onChange` to the Table.
+- **Columns**: Define columns outside the component or memoize them if they rely on closure state.
 
 ## Accessibility / Keyboard
-
-- Tables have proper `role="table"` semantics
-- Sortable columns announce sort state
-- Row actions are keyboard accessible
-- Focus visible on interactive elements
+- AntD Table handles pagination focus.
+- Ensure action buttons have distinct labels (e.g., "Edit User 123" via `aria-label`) if the visual label is just an icon.
 
 ## Do / Don't
-
-**Do:**
-- Use fixed columns for many fields
-- Show loading overlay during data fetch
-- Persist table state in URL query params
-- Use appropriate column widths
-
-**Don't:**
-- Put too many columns (horizontal scroll is bad)
-- Use tables for layout
-- Fetch all data client-side for large sets
-- Hide actions behind hover-only tooltips
+- **Do**: Map your backend pagination format (e.g., `page`, `limit`) to AntD's `current`, `pageSize` structure.
+- **Do**: Use `rowKey="id"` to prevent render issues.
+- **Don't**: Fetch all data and paginate client-side for large datasets; use server-side pagination logic.
 
 ## Minimal Code Snippet
 
 ```tsx
+import React, { useEffect, useState } from 'react';
 import { Table, Tag, Space, Button } from 'antd';
-import { useState, useEffect } from 'react';
+import type { TablePaginationConfig, TableProps } from 'antd/es/table';
 
-function UserTable() {
-  const [data, setData] = useState([]);
+interface DataType {
+  id: string;
+  name: string;
+  role: string;
+}
+
+export const UserTable: React.FC = () => {
+  const [data, setData] = useState<DataType[]>([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
+  const [pagination, setPagination] = useState<TablePaginationConfig>({ current: 1, pageSize: 10 });
+
+  const fetchData = async (params: TablePaginationConfig) => {
+    setLoading(true);
+    // Simulate server call using params.current and params.pageSize
+    setTimeout(() => {
+        setData([{ id: '1', name: 'John Doe', role: 'Admin' }, { id: '2', name: 'Jane Smith', role: 'User' }]);
+        setLoading(false);
+        setPagination({ ...params, total: 50 }); // Update total from server response
+    }, 500);
+  };
 
   useEffect(() => {
-    setLoading(true);
-    fetch('/api/users')
-      .then(r => r.json())
-      .then(data => {
-        setData(data);
-        setLoading(false);
-      });
-  }, [pagination.current]);
+    fetchData(pagination);
+  }, []); // Mount only, or add deps if needed
+
+  const handleTableChange: TableProps<DataType>['onChange'] = (newPagination) => {
+    fetchData(newPagination);
+    setPagination(newPagination);
+  };
 
   const columns = [
-    { title: 'Name', dataIndex: 'name' },
+    { title: 'Name', dataIndex: 'name', key: 'name' },
     { 
-      title: 'Status', 
-      dataIndex: 'status',
-      render: (s) => <Tag color={s === 'active' ? 'green' : 'red'}>{s}</Tag>
+      title: 'Role', 
+      dataIndex: 'role', 
+      key: 'role',
+      render: (role: string) => <Tag color={role === 'Admin' ? 'blue' : 'green'}>{role}</Tag> 
     },
     {
-      title: 'Actions',
-      render: (_, record) => (
-        <Space>
-          <Button size="small">Edit</Button>
-          <Button size="small" danger>Delete</Button>
+      title: 'Action',
+      key: 'action',
+      render: (_: any, record: DataType) => (
+        <Space size="middle">
+          <Button type="link">Edit</Button>
+          <Button type="link" danger>Delete</Button>
         </Space>
       ),
     },
@@ -167,12 +90,12 @@ function UserTable() {
   return (
     <Table
       columns={columns}
-      dataSource={data}
-      loading={loading}
-      pagination={pagination}
-      onChange={setPagination}
       rowKey="id"
+      dataSource={data}
+      pagination={pagination}
+      loading={loading}
+      onChange={handleTableChange}
     />
   );
-}
+};
 ```
